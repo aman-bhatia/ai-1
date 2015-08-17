@@ -56,7 +56,9 @@ int main(){
 	// output to file
 	for (int i=0;i<n;i++){
 		for (int j=0;j<n;j++){
-			file << setprecision(2) << mat[i][j] << " ";
+			file << setprecision(2) << mat[i][j];
+			if(j < n-1)
+				file << " ";
 		}
 		file << "\n";
 	}	
