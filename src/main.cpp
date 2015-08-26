@@ -15,7 +15,7 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
-    starting_time = clock();
+    starting_time = time(0);
     // Parse the input.
     if (argc < 1)
     {
@@ -33,7 +33,7 @@ int main(int argc, char** argv)
 
     // Organize the papers into tracks based on similarity.
     organizer->organizePapers();
-
+    
     cout << "organization:"<<endl;
     organizer->printSessionOrganiser();
 

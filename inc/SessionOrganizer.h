@@ -20,7 +20,7 @@
 
 using namespace std;
 
-extern clock_t starting_time;
+extern time_t starting_time;
 
 
 /**
@@ -56,6 +56,12 @@ private:
     void initializeOrganization();
 
 
+    /*
+     * Greedily Organize the papers Initially
+     */
+
+    void initializeGreedyOrganization();
+
     /**
      * swap two papers in the conference
      * @param indexes specifying the papers to be swapped
@@ -79,6 +85,9 @@ private:
 
 
     bool greedyStep();
+
+
+    bool greedyStep2();
 
 
     /**
