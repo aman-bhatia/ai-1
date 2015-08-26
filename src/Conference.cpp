@@ -11,6 +11,7 @@ Conference::Conference() : tracks(NULL)
     this->parallelTracks = 0;
     this->sessionsInTrack = 0;
     this->papersInSession = 0;
+    this->score = 0.0;
 }
 
 Conference::~Conference()
@@ -23,6 +24,7 @@ Conference::Conference(int parallelTracks, int sessionsInTrack, int papersInSess
     this->parallelTracks = parallelTracks;
     this->sessionsInTrack = sessionsInTrack;
     this->papersInSession = papersInSession;
+    this->score = 0.0;
     initTracks(parallelTracks, sessionsInTrack, papersInSession);
 }
 
@@ -31,6 +33,7 @@ Conference::Conference(const Conference &anotherConference)
     this->parallelTracks = anotherConference.parallelTracks;
     this->sessionsInTrack = anotherConference.sessionsInTrack;
     this->papersInSession = anotherConference.papersInSession;
+    this->score = anotherConference.score;
 
     this->tracks = new Track[this->parallelTracks];
 
@@ -47,7 +50,8 @@ Conference & Conference::operator=(const Conference &anotherConference)
         this->parallelTracks = anotherConference.parallelTracks;
         this->sessionsInTrack = anotherConference.sessionsInTrack;
         this->papersInSession = anotherConference.papersInSession;
-
+        this->score = anotherConference.score;
+        
         this->tracks = new Track[this->parallelTracks];
 
         for(int i=0; i<this->parallelTracks; i++){
@@ -87,17 +91,36 @@ int Conference::getPapersInSession()
     return papersInSession;
 }
 
-Track* Conference::getTrack(int index)
+double Conference::getScore()
 {
-    if (index < parallelTracks)
+    return score;
+}
+
+void Conference::increaseScore(double deltaScore){
+    score += deltaScore;
+}
+
+Track* Conference::getTrack(int trackIndex)
+{
+    if (trackIndex < parallelTracks)
     {
-        return &tracks[index];
+        return &tracks[trackIndex];
     }
     else
     {
         cout << "Index out of bound - Conference::getTrack" << endl;
-        exit ( 0 );
+        exit(0);
     }
+}
+
+Session* Conference::getSession(int trackIndex, int sessionIndex)
+{
+    return this->getTrack(trackIndex)->getSession(sessionIndex);
+}
+
+int Conference::getPaper(int trackIndex, int sessionIndex, int paperIndex)
+{
+    return this->getSession(trackIndex,sessionIndex)->getPaper(paperIndex);
 }
 
 void Conference::setPaper(int trackIndex, int sessionIndex, int paperIndex, int paperId)

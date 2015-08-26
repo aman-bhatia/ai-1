@@ -26,6 +26,10 @@ private:
 
     // The number of papers in a session.
     int papersInSession;
+
+    // score of the conference
+    double score;
+
 public:
     Conference();
     ~Conference();
@@ -60,44 +64,75 @@ public:
     
     
     /**
-     * Gets the number of parallel tracks.
+     * returns the number of parallel tracks.
      * @return the number of parallel tracks.
      */
     int getParallelTracks();
     
     
     /**
-     * Gets the number of sessions in a track.
+     * returns the number of sessions in a track.
      * @return the number of sessions in a track.
      */
     int getSessionsInTrack();
     
     
     /**
-     * Gets the number of papers in a session.
+     * returns the number of papers in a session.
      * @return the number of papers in a session.
      */
     int getPapersInSession();
+
+    /**
+     * returns the score of the conference
+     * @return the score of the conference
+     */
+    double getScore();
+
+    /**
+     * increase the score of conference
+     * @param deltaScore value to be added to score
+     */
+    void increaseScore(double deltaScore);
     
     
     /**
      * Gets the track at the specified index.
-     * @param index is the index of the specified track.
+     * @param trackIndex the index of the specified track.
      * @return the track
      */
-    Track* getTrack(int index);
+    Track* getTrack(int trackIndex);
+
+    /**
+     * Gets the session specified by indexes
+     * @param trackIndex the index of the track
+     * @param sessionIndex the index of the specified session
+     * @return the session
+     */
+    Session* getSession(int trackIndex, int sessionIndex);
+
+    /**
+     * Gets the paper specified by indexes
+     * @param trackIndex the index of the track
+     * @param sessionIndex the index of the session
+     * @param paperIndex the index of the specified paper
+     * @return the paper
+     */
+    int getPaper(int trackIndex, int sessionIndex, int paperIndex);
     
     
     /**
      * Sets the paper in the specified slot to the given paper id.
-     * @param trackIndex is the track index.
-     * @param sessionIndex is the session index.
-     * @param paperIndex is the paper index.
-     * @param paperId is the id of the paper.
+     * @param trackIndex the index of the track
+     * @param sessionIndex the index of the session
+     * @param paperIndex the index of the paper
+     * @param paperId the id of the paper.
      */
     void setPaper(int trackIndex, int sessionIndex, int paperIndex, int paperId);
     
-    
+    /**
+     * Prints the conference
+     */
     void printConference();
 };
 

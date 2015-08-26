@@ -4,6 +4,9 @@
  * 
  */
 
+ #include <algorithm> // for std::random_shuffle
+ #include <vector>
+
 #include "SessionOrganizer.h"
 #include "Util.h"
 
@@ -90,55 +93,87 @@ double** SessionOrganizer::getDistanceMatrix()
     return distanceMatrix;
 }
 
-double SessionOrganizer::scoreOrganization()
+double SessionOrganizer::getSimilarityScoreForSession(Conference &conference, int trackIndex, int sessionIndex)
+{
+    double score = 0.0;
+    Session *session = conference.getSession(trackIndex,sessionIndex);
+
+    for(int i=0; i<session->getNumberOfPapers(); i++)
+    {
+        int paper1 = session->getPaper(i);
+        for(int j=i+1; j<session->getNumberOfPapers(); j++)
+        {
+            int paper2 = session->getPaper(j);
+            score += 1.0 - distanceMatrix[paper1][paper2];
+        }
+    }
+
+    return score;
+}
+
+double SessionOrganizer::getParallelScoreBetweenSessions(Conference &conference, int trackIndex1, int sessionIndex1, int trackIndex2, int sessionIndex2)
+{
+    double score = 0.0;
+
+    Session *session1 = conference.getSession(trackIndex1, sessionIndex1);
+    Session *session2 = conference.getSession(trackIndex2, sessionIndex2);
+
+    for(int paperIndex1 = 0; paperIndex1 < session1->getNumberOfPapers(); paperIndex1++)
+    {
+        int paper1 = session1->getPaper(paperIndex1);
+        for(int paperIndex2 = 0; paperIndex2 < session2->getNumberOfPapers(); paperIndex2++)
+        {
+            int paper2 = session2->getPaper(paperIndex2);
+            score += distanceMatrix[paper1][paper2];
+        }
+    }
+
+    return score;
+}
+
+double SessionOrganizer::getParallelScoreForSession(Conference &conference, int trackIndex, int sessionIndex)
+{
+    double score = 0.0;
+
+    for(int trackIndex2 = 0; trackIndex2 < conference.getParallelTracks(); trackIndex2++)
+    {
+        if(trackIndex2 != trackIndex){
+            score += this->getParallelScoreBetweenSessions(conference,trackIndex,sessionIndex,trackIndex2,sessionIndex);
+        }
+    }
+
+    return score;
+}
+
+double SessionOrganizer::scoreConference(Conference &conference)
 {
     // Sum of pairwise similarities per session.
     double score1 = 0.0;
-    for(int i = 0; i < conference->getParallelTracks(); i++)
+    for(int trackIndex = 0; trackIndex < conference.getParallelTracks(); trackIndex++)
     {
-        Track *tmpTrack = conference->getTrack(i);
-        for(int j = 0; j < tmpTrack->getNumberOfSessions(); j++)
+        Track *tmpTrack = conference.getTrack(trackIndex);
+        for(int sessionIndex = 0; sessionIndex < tmpTrack->getNumberOfSessions(); sessionIndex++)
         {
-            Session *tmpSession = tmpTrack->getSession(j);
-            for(int k = 0; k < tmpSession->getNumberOfPapers(); k++)
-            {
-                int index1 = tmpSession->getPaper(k);
-                for(int l = k + 1; l < tmpSession->getNumberOfPapers(); l++)
-                {
-                    int index2 = tmpSession->getPaper(l);
-                    score1 += 1 - distanceMatrix[index1][index2];
-                }
-            }
+            score1 += getSimilarityScoreForSession(conference, trackIndex, sessionIndex);
         }
     }
 
     // Sum of distances for competing papers.
     double score2 = 0.0;
-    for(int i = 0; i < conference->getParallelTracks(); i++)
+    for(int trackIndex1 = 0; trackIndex1 < conference.getParallelTracks(); trackIndex1++)
     {
-        Track *tmpTrack1 = conference->getTrack(i);
-        for(int j = 0; j < tmpTrack1->getNumberOfSessions(); j++)
+        for(int sessionIndex1 = 0; sessionIndex1 < conference.getSessionsInTrack(); sessionIndex1++)
         {
-            Session *tmpSession1 = tmpTrack1->getSession(j);
-            for(int k = 0; k < tmpSession1->getNumberOfPapers(); k++)
+            for(int trackIndex2 = trackIndex1 + 1; trackIndex2 < conference.getParallelTracks(); trackIndex2++)
             {
-                int index1 = tmpSession1->getPaper(k);
-
-                // Get competing papers.
-                for(int l = i + 1; l < conference->getParallelTracks(); l++)
-                {
-                    Track *tmpTrack2 = conference->getTrack(l);
-                    Session *tmpSession2 = tmpTrack2->getSession(j);
-                    for(int m = 0; m < tmpSession2->getNumberOfPapers(); m++)
-                    {
-                        int index2 = tmpSession2->getPaper(m);
-                        score2 += distanceMatrix[index1][index2];
-                    }
-                }
+                score2 += this->getParallelScoreBetweenSessions(conference,trackIndex1,sessionIndex1,trackIndex2,sessionIndex1);
             }
         }
     }
+
     double score = score1 + tradeoffCoefficient*score2;
+    conference.increaseScore(score - conference.getScore());
+
     return score;
 }
 
@@ -147,8 +182,23 @@ void SessionOrganizer::printSessionOrganiser()
     conference->printConference();
 }
 
-void SessionOrganizer::initialOrganization()
+double SessionOrganizer::getConferenceScore()
 {
+    return conference->getScore();
+}
+
+void SessionOrganizer::initializeOrganization()
+{
+    
+    int totalNumberOfPapers = parallelTracks * sessionsInTrack * papersInSession;
+
+    vector<int> v;
+    for(int i=0; i<totalNumberOfPapers; i++){
+        v.push_back(i);
+    }
+
+    std::random_shuffle(v.begin(),v.end());
+
     int paperCounter = 0;
     for(int i = 0; i < conference->getSessionsInTrack(); i++)
     {
@@ -156,31 +206,50 @@ void SessionOrganizer::initialOrganization()
         {
             for(int k = 0; k < conference->getPapersInSession(); k++)
             {
-                conference->setPaper(j, i, k, paperCounter);
+                conference->setPaper(j, i, k, v[paperCounter]);
                 paperCounter++;
             }
         }
     }
+
+    // update the score
+    double score = scoreConference(*conference);
 }
 
-void SessionOrganizer::swapPapers(int trackIndex1, int sessionIndex1, int paperIndex1, int trackIndex2, int sessionIndex2, int paperIndex2) {
-    Track *track1 = conference->getTrack(trackIndex1);
-    Track *track2 = conference->getTrack(trackIndex2);
+void SessionOrganizer::swapPapers(Conference &conference, int trackIndex1, int sessionIndex1, int paperIndex1, int trackIndex2, int sessionIndex2, int paperIndex2)
+{
+    int paper1 = conference.getPaper(trackIndex1, sessionIndex1, paperIndex1);
+    int paper2 = conference.getPaper(trackIndex2, sessionIndex2, paperIndex2);
+    
+    double delta = 0.0;
+    delta -= getSimilarityScoreForSession(conference, trackIndex1, sessionIndex1);
+    delta -= getSimilarityScoreForSession(conference, trackIndex2, sessionIndex2);
+    delta -= tradeoffCoefficient * getParallelScoreForSession(conference, trackIndex1, sessionIndex1);
+    delta -= tradeoffCoefficient * getParallelScoreForSession(conference, trackIndex2, sessionIndex2);
 
-    Session *session1 = track1->getSession(sessionIndex1);
-    Session *session2 = track2->getSession(sessionIndex2);
+    if(sessionIndex1 == sessionIndex2)
+    {
+        delta += tradeoffCoefficient * getParallelScoreBetweenSessions(conference, trackIndex1, sessionIndex1, trackIndex2, sessionIndex2);
+    }
 
-    int paper1 = session1->getPaper(paperIndex1);
-    int paper2 = session2->getPaper(paperIndex2);
+    conference.setPaper(trackIndex1,sessionIndex1,paperIndex1,paper2);
+    conference.setPaper(trackIndex2,sessionIndex2,paperIndex2,paper1);
 
-    conference->setPaper(trackIndex1,sessionIndex1,paperIndex1,paper2);
-    conference->setPaper(trackIndex2,sessionIndex2,paperIndex2,paper1);
+    delta += getSimilarityScoreForSession(conference, trackIndex1, sessionIndex1);
+    delta += getSimilarityScoreForSession(conference, trackIndex2, sessionIndex2);
+    delta += tradeoffCoefficient * getParallelScoreForSession(conference, trackIndex1, sessionIndex1);
+    delta += tradeoffCoefficient * getParallelScoreForSession(conference, trackIndex2, sessionIndex2);
+    
+    if(sessionIndex1 == sessionIndex2)
+    {
+        delta -= tradeoffCoefficient * getParallelScoreBetweenSessions(conference, trackIndex1, sessionIndex1, trackIndex2, sessionIndex2);
+    }
+
+    conference.increaseScore(delta);
 }
 
-void SessionOrganizer::randomizeConference(int numberOfRandomizationSteps) {
-    if(numberOfRandomizationSteps == 0) 
-        return;
-
+void SessionOrganizer::swapTwoRandomPapers() {
+    
     int trackIndex1 = rand() % parallelTracks ;
     int trackIndex2 = rand() % parallelTracks ;
 
@@ -207,14 +276,26 @@ void SessionOrganizer::randomizeConference(int numberOfRandomizationSteps) {
     int paperIndex1 = rand() % papersInSession;
     int paperIndex2 = rand() % papersInSession;
 
-    swapPapers(trackIndex1, sessionIndex1, paperIndex1, trackIndex2, sessionIndex2, paperIndex2);
-
-    return randomizeConference(numberOfRandomizationSteps-1);
+    swapPapers(*conference, trackIndex1, sessionIndex1, paperIndex1, trackIndex2, sessionIndex2, paperIndex2);
 }
 
-bool SessionOrganizer::climbStep() {
-    //cout<<"---------------- Climbing Step ---------------------\n";
-    double currentMaximumScore = scoreOrganization();
+double SessionOrganizer::getScoreOnSwapping(Conference &conference, int trackIndex1, int sessionIndex1, int paperIndex1, int trackIndex2, int sessionIndex2, int paperIndex2)
+{
+    // first swap papers
+    swapPapers(conference,trackIndex1,sessionIndex1,paperIndex1,trackIndex2,sessionIndex2,paperIndex2);
+    
+    // calculate the resulting score
+    double score = conference.getScore();
+    
+    // now unswap
+    swapPapers(conference,trackIndex1,sessionIndex1,paperIndex1,trackIndex2,sessionIndex2,paperIndex2);
+    
+    return score;
+}
+
+bool SessionOrganizer::greedyStep()
+{
+    double currentMaximumScore = conference->getScore();
     //cout<<"Current Score = "<<currentMaximumScore<<endl;
     bool increased = false;
     int optimalTrackIndex1,optimalTrackIndex2;
@@ -227,21 +308,29 @@ bool SessionOrganizer::climbStep() {
         for(int sessionIndex1=0; sessionIndex1<track1->getNumberOfSessions(); ++sessionIndex1)
         {
             Session *session1 = track1->getSession(sessionIndex1);
-            for(int paperIndex1=0; paperIndex1<session1->getNumberOfPapers(); ++paperIndex1)
+            
+            for(int trackIndex2=trackIndex1; trackIndex2<conference->getParallelTracks(); ++trackIndex2)
             {
-                for(int trackIndex2=trackIndex1; trackIndex2<conference->getParallelTracks(); ++trackIndex2)
+                Track *track2 = conference->getTrack(trackIndex2);
+                
+                int sessionIndex2;
+                if(trackIndex1 == trackIndex2){
+                    sessionIndex2 = sessionIndex1 + 1;
+                }else{
+                    sessionIndex2 = 0;
+                }
+
+                for(sessionIndex2 ; sessionIndex2<track2->getNumberOfSessions(); ++sessionIndex2)
                 {
-                    Track *track2 = conference->getTrack(trackIndex2);
-                    for(int sessionIndex2=0; sessionIndex2<track2->getNumberOfSessions(); ++sessionIndex2)
-                    {
-                        if(trackIndex1 == trackIndex2 && sessionIndex1 == sessionIndex2) {
-                            continue;
-                        }
-                        Session *session2 = track2->getSession(sessionIndex2);
-                        for(int paperIndex2=0; paperIndex2<session2->getNumberOfPapers(); ++paperIndex2)
-                        {
-                            swapPapers(trackIndex1,sessionIndex1,paperIndex1,trackIndex2,sessionIndex2,paperIndex2);
-                            double newScore = scoreOrganization();
+                    Session *session2 = track2->getSession(sessionIndex2);
+
+                    for(int paperIndex1=0; paperIndex1<session1->getNumberOfPapers(); ++paperIndex1){
+                        int index1 = paperIndex1;
+                        //int index1 = rand() % session1->getNumberOfPapers();
+                        int index2 = rand() % session2->getNumberOfPapers();
+
+                        //for(int index2 = 0; index2<session2->getNumberOfPapers(); index2++){
+                            double newScore = getScoreOnSwapping(*conference,trackIndex1,sessionIndex1,index1,trackIndex2,sessionIndex2,index2);
                             //cout<<"New Score = "<<newScore<<endl;
                             if(newScore > currentMaximumScore) {
                                 // save indexes
@@ -249,10 +338,9 @@ bool SessionOrganizer::climbStep() {
                                 currentMaximumScore = newScore;
                                 optimalTrackIndex1 = trackIndex1; optimalTrackIndex2 = trackIndex2;
                                 optimalSessionIndex1 = sessionIndex1; optimalSessionIndex2 = sessionIndex2;
-                                optimalPaperIndex1 = paperIndex1; optimalPaperIndex2 = paperIndex2;
+                                optimalPaperIndex1 = index1; optimalPaperIndex2 = index2;
                             }
-                            swapPapers(trackIndex1,sessionIndex1,paperIndex1,trackIndex2,sessionIndex2,paperIndex2);
-                        }
+                        //}
                     }
                 }
             }
@@ -260,7 +348,7 @@ bool SessionOrganizer::climbStep() {
     }
 
     if(increased){
-        swapPapers(optimalTrackIndex1,optimalSessionIndex1,optimalPaperIndex1,optimalTrackIndex2,optimalSessionIndex2,optimalPaperIndex2);
+        swapPapers(*conference,optimalTrackIndex1,optimalSessionIndex1,optimalPaperIndex1,optimalTrackIndex2,optimalSessionIndex2,optimalPaperIndex2);
     }else{
         ;//cout<<"Reached Local Maxima"<<endl;
     }
@@ -268,36 +356,59 @@ bool SessionOrganizer::climbStep() {
     return increased;
 }
 
+bool SessionOrganizer::climbStep() {
+    //cout << "---------------- Climbing Step ---------------------" << endl;
+
+    int int_max = 1000000;
+    long double randomNumber = (long double)(rand() % int_max) / (int_max -1);
+    
+    // with this probability choose the greedy step else swap two randomly chosen papers
+    if(randomNumber <= 0.75)
+    {
+        return greedyStep();
+    }
+    else
+    {
+        swapTwoRandomPapers();
+        return true;
+    }
+}
+
 /**
  * Organize Papers by using Random Restart Hill Climbing Algorithm
  */
 void SessionOrganizer::organizePapers()
 {
-    initialOrganization();
+    initializeOrganization();
 
-    double maximumScoreSoFar = scoreOrganization();
+    double maximumScoreSoFar = conference->getScore();
     Conference optimalConference = *conference;
     
-    int numberOfRandomRestarts = 100;
-    int numberOfRandomizationSteps = 100;
-
-    double score;
-
+    int numberOfRandomRestarts = 1000;
+    
+    double score = conference->getScore();
+    
     for(int i=0; i<numberOfRandomRestarts; ++i)
     {
-        randomizeConference(numberOfRandomizationSteps);
+        cout << endl;
+        cout << "At random restart " << i << endl;
+        
+        initializeOrganization();
+        cout << "Initial Score = " << conference->getScore() << endl;
+
         bool climbSuccessful;
         do
         {
             climbSuccessful = climbStep();
-        }while(climbSuccessful);
+        }while(climbSuccessful);        
 
-        score = scoreOrganization();
+        score = conference->getScore();
+        cout << "Previous Maximum = " << maximumScoreSoFar << endl;
+        cout << "Current Maximum = " << score << endl;
+
         if(score > maximumScoreSoFar){
-            cout << endl;
-            cout << "Maximum score got increased from " << maximumScoreSoFar << " to " << score << " at random restart " << i << endl;
-            cout << "Previous Maximum = " << maximumScoreSoFar << endl;
-            cout << "Current Maximum = " << score << endl;
+            //cout << endl;
+            cout << "Maximum score got increased from " << maximumScoreSoFar << " to " << score << endl;
             maximumScoreSoFar = score;
             optimalConference = *conference;
         }
