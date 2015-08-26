@@ -4,11 +4,13 @@
  * 
  */
 
- #include <algorithm> // for std::random_shuffle
- #include <vector>
+#include <algorithm> // for std::random_shuffle
+#include <vector>
 
 #include "SessionOrganizer.h"
 #include "Util.h"
+
+clock_t starting_time;
 
 SessionOrganizer::SessionOrganizer() : conference(NULL)
 {
@@ -384,13 +386,23 @@ void SessionOrganizer::organizePapers()
     double maximumScoreSoFar = conference->getScore();
     Conference optimalConference = *conference;
     
+
+    // check if there is only one track and one session
+    if (parallelTracks == 1 && sessionsInTrack == 1)
+        return;
+
     int numberOfRandomRestarts = 1000;
     
     double score = conference->getScore();
     
+    double time_left = processingTimeInMinutes*60 - ((float)(clock() - starting_time)/CLOCKS_PER_SEC);      // time left in seconds
+    float max_iteration_time = 0;                                                                           // in seconds
     for(int i=0; i<numberOfRandomRestarts; ++i)
     {
+        clock_t iteration_start = clock();
         cout << endl;
+        cout << "Time Left : " << time_left << endl;
+
         cout << "At random restart " << i << endl;
         
         initializeOrganization();
@@ -412,7 +424,11 @@ void SessionOrganizer::organizePapers()
             maximumScoreSoFar = score;
             optimalConference = *conference;
         }
+        max_iteration_time = max(max_iteration_time, ((float)(clock() - iteration_start)/CLOCKS_PER_SEC));
+        time_left = processingTimeInMinutes*60 - ((float)(clock() - starting_time)/CLOCKS_PER_SEC);
+        if (time_left < max_iteration_time)
+            break;
     }
-    
+
     *conference = optimalConference; // make the current conference equal to the optimal conference
 }

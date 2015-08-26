@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <unistd.h>
 
 
 #include "Conference.h"
@@ -18,6 +19,8 @@
 #include "Session.h"
 
 using namespace std;
+
+extern clock_t starting_time;
 
 
 /**

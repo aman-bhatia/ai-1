@@ -15,6 +15,7 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
+    starting_time = clock();
     // Parse the input.
     if (argc < 1)
     {
