@@ -61,6 +61,11 @@ Conference & Conference::operator=(const Conference &anotherConference)
     return *this;
 }
 
+bool Conference::operator < (const Conference &rhs)
+{
+    return this->score < rhs.score;
+}
+
 void Conference::initTracks(int parallelTracks, int sessionsInTrack, int papersInSession)
 {
     tracks = new Track[parallelTracks];

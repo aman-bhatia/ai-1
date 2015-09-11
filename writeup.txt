@@ -1,0 +1,4 @@
+1
+Manoj Kataria
+Basic Local search algorithm with random restarts
+Also used probability to choose between hill climbing and random walk

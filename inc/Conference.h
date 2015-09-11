@@ -52,6 +52,11 @@ public:
      * Assignment Operator
      */
     Conference & operator=(const Conference &anotherConference);
+
+    /**
+     * Less than Operator
+     */
+    bool operator < (const Conference &rhs);
     
     
     /**

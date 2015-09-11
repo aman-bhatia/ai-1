@@ -12,8 +12,6 @@
 #include "SessionOrganizer.h"
 #include "Util.h"
 
-time_t starting_time;
-int which_greedy = 0;
 
 SessionOrganizer::SessionOrganizer() : conference(NULL)
 {
@@ -22,11 +20,15 @@ SessionOrganizer::SessionOrganizer() : conference(NULL)
 	sessionsInTrack = 0;
 	processingTimeInMinutes = 0;
 	tradeoffCoefficient = 1.0;
+	outputFileName = "output.txt";
+	globalMaximumScore = 0.0;
 }
 
-SessionOrganizer::SessionOrganizer(string filename)
+SessionOrganizer::SessionOrganizer(string inputFileName, string outputFileName, time_t starting_time)
 {
-	readInInputFile(filename);
+	this->outputFileName = outputFileName;
+	this->starting_time = starting_time;
+	readInInputFile(inputFileName);
 	conference = new Conference(parallelTracks, sessionsInTrack, papersInSession);
 }
 
@@ -192,7 +194,7 @@ double SessionOrganizer::getConferenceScore()
 	return conference->getScore();
 }
 
-void SessionOrganizer::initializeOrganization()
+void SessionOrganizer::initializeOrganization(Conference *conference)
 {
 	
 	int totalNumberOfPapers = parallelTracks * sessionsInTrack * papersInSession;
@@ -253,7 +255,7 @@ void SessionOrganizer::swapPapers(Conference &conference, int trackIndex1, int s
 	conference.increaseScore(delta);
 }
 
-void SessionOrganizer::swapTwoRandomPapers() {
+void SessionOrganizer::swapTwoRandomPapers(Conference *conference) {
 	
 	int trackIndex1 = rand() % parallelTracks ;
 	int trackIndex2 = rand() % parallelTracks ;
@@ -328,10 +330,10 @@ bool SessionOrganizer::greedyStep()
 					
 					for(int paperIndex1=0; paperIndex1<papersInSession; ++paperIndex1){
 						int index1 = paperIndex1;
-						//int index1 = rand() % session1->getNumberOfPapers();
-						//int index2 = rand() % session2->getNumberOfPapers();
+						//int index1 = rand() % papersInSession;
+						int index2 = rand() % papersInSession;
 
-						for(int index2 = 0; index2<papersInSession; index2++){
+						//for(int index2 = 0; index2<papersInSession; index2++){
 							double newScore = getScoreOnSwapping(*conference,trackIndex1,sessionIndex1,index1,trackIndex2,sessionIndex2,index2);
 							//cout<<"New Score = "<<newScore<<endl;
 							if(newScore > currentMaximumScore) {
@@ -342,7 +344,7 @@ bool SessionOrganizer::greedyStep()
 								optimalSessionIndex1 = sessionIndex1; optimalSessionIndex2 = sessionIndex2;
 								optimalPaperIndex1 = index1; optimalPaperIndex2 = index2;
 							}
-						}
+						//}
 					}
 				}
 			}
@@ -351,6 +353,7 @@ bool SessionOrganizer::greedyStep()
 
 	if(increased){
 		swapPapers(*conference,optimalTrackIndex1,optimalSessionIndex1,optimalPaperIndex1,optimalTrackIndex2,optimalSessionIndex2,optimalPaperIndex2);
+		//cout << conference->getScore() << endl;
 	}else{
 		;//cout<<"Reached Local Maxima"<<endl;
 	}
@@ -407,99 +410,47 @@ bool SessionOrganizer::greedyStep2()
 	return increased;
 }
 
+void SessionOrganizer::randomSwapping(int maximumIterations){
 
-bool SessionOrganizer::climbStep() {
-	//cout << "---------------- Climbing Step ---------------------" << endl;
+	double maximumScore = conference->getScore();
+	int iterations = 0;
 
-	//int int_max = 1000000;
-	//long double randomNumber = (long double)(rand() % int_max) / (int_max -1);
-	
-	// with this probability choose the greedy step else swap two randomly chosen papers
-	// if(randomNumber <= 0.75)
-	// {
-	// 	return greedyStep();
-	// }
-	// else if (randomNumber > 0.3 && randomNumber <= 0.6)
-	// {
-	// 	return greedyStep2();
-	// }
-	// else
-	// {
-	// 	swapTwoRandomPapers();
-	// 	return true;
-	// }
-	if (which_greedy == 200)
-		which_greedy = 0;
-	
-	which_greedy++;
+	for(; iterations < maximumIterations ; iterations++){
+		int trackIndex1 = rand() % parallelTracks ;
+		int trackIndex2 = rand() % parallelTracks ;
 
-	if (which_greedy < 100){
-		return greedyStep();
-	}
-	else
-	{
-		return greedyStep2();
-	}
-}
+		int sessionIndex1 = rand() % sessionsInTrack;
+		int sessionIndex2 = rand() % sessionsInTrack;
 
-/**
- * Organize Papers by using Random Restart Hill Climbing Algorithm
- */
-void SessionOrganizer::organizePapers()
-{
-	initializeGreedyOrganization();
-
-	double maximumScoreSoFar = conference->getScore();
-	Conference optimalConference = *conference;
-	
-
-	// check if there is only one track and one session
-	if (parallelTracks == 1 && sessionsInTrack == 1)
-		return;
-
-	int numberOfRandomRestarts = INT_MAX;
-	
-	double score = conference->getScore();
-	
-	double time_left = processingTimeInMinutes*60 - difftime(time(0), starting_time);				// time left in seconds
-	double max_iteration_time = 0;																	// in seconds
-	for(int i=0; i<numberOfRandomRestarts; ++i)
-	{
-		time_t iteration_start = time(0);
-		cout << endl;
-		cout << "Time Left : " << time_left << endl;
-
-		cout << "At random restart " << i << endl;
-		
-		initializeOrganization();
-		//initializeGreedyOrganization();
-		cout << "Initial Score = " << conference->getScore() << endl;
-		
-		bool climbSuccessful;
-		do
-		{
-			climbSuccessful = climbStep();
-		} while (climbSuccessful);        
-		
-		score = conference->getScore();
-		cout << "Previous Maximum = " << maximumScoreSoFar << endl;
-		cout << "Current Maximum = " << score << endl;
-
-		if (score > maximumScoreSoFar){
-			//cout << endl;
-			cout << "Maximum score got increased from " << maximumScoreSoFar << " to " << score << endl;
-			maximumScoreSoFar = score;
-			optimalConference = *conference;
+		if(trackIndex1 == trackIndex2) {
+			// sessions must be different if both tracks are same
+			if(sessionIndex1 == sessionIndex2) {
+				if(sessionsInTrack == 1) {
+					// change the track
+					do { 
+						trackIndex2 = rand() % parallelTracks;
+					} while (trackIndex1 == trackIndex2);
+				}else {
+					// change the session
+					do {
+						sessionIndex2 = rand() % sessionsInTrack;
+					} while (sessionIndex1 == sessionIndex2);
+				}
+			}
 		}
-		max_iteration_time = max(max_iteration_time, difftime(time(0), iteration_start));
-		time_left = processingTimeInMinutes*60 - difftime(time(0), starting_time);
-		if (time_left < max_iteration_time)
-			break;
+
+		int paperIndex1 = rand() % papersInSession;
+		int paperIndex2 = rand() % papersInSession;
+
+		double score = getScoreOnSwapping(*conference, trackIndex1, sessionIndex1, paperIndex1, trackIndex2, sessionIndex2, paperIndex2);
+
+		if(score > maximumScore){
+			iterations = 0;
+			maximumScore = score;
+			swapPapers(*conference, trackIndex1, sessionIndex1, paperIndex1, trackIndex2, sessionIndex2, paperIndex2);
+		}
 	}
-
-	*conference = optimalConference; // make the current conference equal to the optimal conference
 }
-
 
 void SessionOrganizer::initializeGreedyOrganization()
 {
@@ -574,5 +525,138 @@ void SessionOrganizer::initializeGreedyOrganization()
 }
 
 
+bool SessionOrganizer::climbStep() {
+	//cout << "---------------- Climbing Step ---------------------" << endl;
+
+	int int_max = 1000000;
+	long double randomNumber = (long double)(rand() % int_max) / (int_max -1);
+	
+	//with this probability choose the greedy step else swap two randomly chosen papers
+	if(randomNumber <= 1.00)
+	{
+		return greedyStep();
+	}
+}
+
+/**
+ * Organize Papers by using Random Restart Hill Climbing Algorithm
+ */
+void SessionOrganizer::organizePapers()
+{
+	initializeOrganization(this->conference);
+	
+	globalMaximumScore = conference->getScore();
+	writeConference(*conference);
+
+	// check if there is only one track and one session
+	if (parallelTracks == 1 && sessionsInTrack == 1)
+		return;
+
+	while(true){
+		localBeamSearch(100);
+	}
+}
+
+void SessionOrganizer::writeConference(Conference &conference) {
+	ofstream fout(outputFileName);
+
+	for(int sessionIndex = 0; sessionIndex < sessionsInTrack; sessionIndex++)
+    {
+        for(int trackIndex = 0; trackIndex < parallelTracks; trackIndex++)
+        {	
+        	Session *currentSession = conference.getSession(trackIndex, sessionIndex);
+            for(int paperIndex = 0; paperIndex < papersInSession; paperIndex++)
+            {
+                fout<< currentSession->getPaper(paperIndex) << " ";
+            }
+            if(trackIndex != parallelTracks - 1)
+            {
+                fout<< "| ";
+            }
+        }
+        fout<< "\n";
+    }
+}
 
 
+void SessionOrganizer::localBeamSearch(int beamSize) {
+	vector<Conference> beam;
+	vector<Conference> beamNeighbours;
+	int maximumNumberOfIterations = 0;
+
+	initializeOrganization(this->conference);
+	double maximumScore = this->conference->getScore();
+	
+	Conference optimalConference = *(this->conference);
+
+	for(int i=0; i<beamSize; i++){
+		Conference newConference = *conference;
+		initializeOrganization(&newConference);
+		beam.push_back(newConference);
+	}
+
+	double time_left = processingTimeInMinutes*60 - difftime(time(0), starting_time);				// time left in seconds
+	double max_iteration_time = 0;																	// in seconds
+
+	do {
+		time_t iteration_start = time(0);
+
+		cout << endl;
+		cout << "Time Left : " << time_left << endl;
+		cout << "iteration = " << maximumNumberOfIterations << endl;
+		for(int i=0; i<beamSize; i++){
+			Conference tmpConference = beam[i];
+			beamNeighbours.push_back(tmpConference);
+
+			for(int j=0; j<beamSize; j++){
+				Conference neighbourConference = beam[i];
+				swapTwoRandomPapers(&neighbourConference);
+				beamNeighbours.push_back(neighbourConference);
+			}
+		}
+
+
+		sort(beamNeighbours.begin(),beamNeighbours.end());
+
+		int neighboursSize = beamNeighbours.size();
+
+		if(beamNeighbours[neighboursSize-1].getScore() > maximumScore){
+			maximumScore = beamNeighbours[neighboursSize-1].getScore();
+			optimalConference = beamNeighbours[neighboursSize-1];
+			cout << "Increased to " << optimalConference.getScore() << endl;
+
+			time_left = processingTimeInMinutes*60 - difftime(time(0), starting_time);
+			
+			// don't overwrite the outputfile if time is up
+			if(time_left <= 1.0){
+				exit(0);
+			}
+
+			if(optimalConference.getScore() > globalMaximumScore){
+				globalMaximumScore = optimalConference.getScore();
+				writeConference(optimalConference);
+			}
+
+			maximumNumberOfIterations = 0;
+		}else{
+			cout << "nhi badh rha h" << endl;
+			maximumNumberOfIterations++;
+		}
+
+		beam.clear();
+
+		for(int i=0; i<beamSize; i++){
+			beam.push_back(beamNeighbours[neighboursSize-i-1]);
+		}
+
+		beamNeighbours.clear();
+
+		max_iteration_time = max(max_iteration_time, difftime(time(0), iteration_start));
+		time_left = processingTimeInMinutes*60 - difftime(time(0), starting_time);
+		
+		if (time_left < max_iteration_time) {
+			exit(0);
+		}
+
+	} while (maximumNumberOfIterations < 100);
+}

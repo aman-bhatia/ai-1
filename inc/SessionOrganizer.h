@@ -12,6 +12,7 @@
 #include <fstream>
 #include <vector>
 #include <unistd.h>
+#include <time.h>
 
 
 #include "Conference.h"
@@ -19,9 +20,6 @@
 #include "Session.h"
 
 using namespace std;
-
-extern time_t starting_time;
-
 
 /**
  * SessionOrganizer reads in a similarity matrix of papers, and organizes them
@@ -43,6 +41,11 @@ private:
     double processingTimeInMinutes ;
     double tradeoffCoefficient ; // the tradeoff coefficient
 
+    time_t starting_time;
+    string outputFileName;
+
+    double globalMaximumScore;
+
     /**
      * Read in the number of parallel tracks, papers in session, sessions
      * in a track, and the similarity matrix from the specified filename.
@@ -53,7 +56,7 @@ private:
     /*
      * Organize the papers Initially
      */
-    void initializeOrganization();
+    void initializeOrganization(Conference *conference);
 
 
     /*
@@ -72,7 +75,7 @@ private:
     /**
      * Swap two randomly chosen papers in the conference
      */
-    void swapTwoRandomPapers();
+    void swapTwoRandomPapers(Conference *conference);
 
 
     /**
@@ -88,6 +91,9 @@ private:
 
 
     bool greedyStep2();
+
+
+    void randomSwapping(int maximumIterations);
 
 
     /**
@@ -131,9 +137,17 @@ private:
      */
     double scoreConference(Conference &conference);
 
+    /**
+     * write the conference to output file
+     * @conference conference to be written
+     */
+    void writeConference(Conference &conference);
+    
+    void localBeamSearch(int beamSize);
+
 public:
     SessionOrganizer();
-    SessionOrganizer(string filename);
+    SessionOrganizer(string inputFileName, string outputFileName, time_t starting_time);
     
     /**
      * Get the distance matrix.

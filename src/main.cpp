@@ -7,7 +7,6 @@
 #include <cstdlib>
 #include <time.h>
 #include <stdlib.h>
-#include <iomanip>
 
 #include "SessionOrganizer.h"
 
@@ -15,21 +14,21 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
-    starting_time = time(0);
+    time_t starting_time = time(0);
     // Parse the input.
-    if (argc < 1)
+    if (argc < 2)
     {
-        cout << "./a.out <input_filename>";
+        cout << "./a.out <input_filename> <output_filename>";
         exit(0);
     }
 
     srand(time(NULL));
-    setprecision(7);
     
-    string inputfilename(argv[1]);
+    string inputFileName(argv[1]);
+    string outputFileName(argv[2]);
 
     // Initialize the conference organizer.
-    SessionOrganizer *organizer  = new SessionOrganizer(inputfilename);
+    SessionOrganizer *organizer  = new SessionOrganizer(inputFileName, outputFileName, starting_time);
 
     // Organize the papers into tracks based on similarity.
     organizer->organizePapers();

@@ -20,7 +20,7 @@ OBJS = $(subst $(SRCDIR)/,$(OBJDIR)/,$(SRCS:.cpp=.o))
 MAIN = a.out
 
 execute: init $(MAIN)
-	./$(MAIN) $(input)
+	
 
 debug: CFLAGS += $(DFLAGS)
 debug: init $(MAIN)
