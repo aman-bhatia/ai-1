@@ -1,6 +1,6 @@
 Summary
 ---------
-Problem : To schedule a conference of papers so as to optimize some function
+Problem : To schedule a conference of papers so as to optimize score of a scheduling evaluator function
 Solution : A greedy hill climbing algorithm with random restarts
 
 Instructions
